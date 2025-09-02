@@ -22,6 +22,175 @@
     .then(msg => alert(msg))
     .catch(err => console.error("Error:", err));
   });
+
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+─ visibilitychange
+→ handleViolation()
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        handleViolation();
+    }
+});
+—-- fullscreenchange / webkitfullscreenchange / msfullscreenchange
+→ handleViolation()
+
+document.addEventListener('fullscreenchange', handleViolation);
+document.addEventListener('webkitfullscreenchange', handleViolation);
+document.addEventListener('msfullscreenchange', handleViolation);
+
+START EXAM FLOW
+ startBtn (click)
+   → requestFullscreen()
+   → fetch("exam-data.json")
+   → startTimer()
+   → renderQuestion(0)
+
+document.getElementById('startBtn').addEventListener('click', () => {
+    if (confirm('Are you sure you want to start the exam?')) {
+        document.getElementById('exam-container').style.display = 'block';
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('rules').style.display = 'none';
+        requestFullscreen();   // → put browser in fullscreen
+        fetch('exam-data.json') // → load exam questions
+            .then(response => response.json())
+            .then(data => {
+                examData = data;
+                startTimer();        // → start countdown timer
+                renderQuestion(0);   // → show first question
+            })
+            .catch(error => console.error('Error loading exam data:', error));
+    }
+});
+
+
+
+QUESTION FLOW
+ renderQuestion(index)
+   ├─ submitBtn (click)
+   │    → showConfirmModal()
+   └─ ansInput (keydown Enter)
+        → showConfirmModal()
+
+function renderQuestion(index) {
+    const container = document.getElementById('questions-container');
+    container.innerHTML = `
+        <div class="question">
+            <p>${index + 1}. ${examData[index].question}</p>
+            <input type="text" id="ansInput" placeholder="Type your answer here">
+            <button id="submitBtn">Submit</button>
+        </div>
+    `;
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+        showConfirmModal();   // → Confirm before submitting
+    });
+
+    document.getElementById('ansInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!document.getElementById('confirmModal').classList.contains('show')) {
+                showConfirmModal();  // → Same confirm modal when pressing Enter
+            }
+        }
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//CONFIRMATION MODAL
+// showConfirmModal()
+ //  ├─ confirmYes (click OR Enter key)
+ //  │    → processAnswer()
+  // └─ confirmNo (click OR Escape key)
+    //    → cancel, close modal
+
+function showConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    modal.classList.add('show');
+
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmNo = document.getElementById('confirmNo');
+
+    // "Yes" button
+    confirmYes.onclick = () => {
+        modal.classList.remove('show');
+        processAnswer();   // → Save and go to next question
+    };
+
+    // "No" button
+    confirmNo.onclick = () => {
+        modal.classList.remove('show'); // → Just close
+    };
+
+    // Keyboard shortcuts
+    function handleKeys(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmYes.click();   // → Triggers "Yes"
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            confirmNo.click();   // → Triggers "No"
+        }
+    }
+
+    document.addEventListener('keydown', handleKeys, { once: true, capture: true });
+}
+
+
+
+
+
+
+VIOLATION MODAL
+ continueBtn (click)
+   → restore fullscreen, resume exam
+ exitBtn (click)
+   → finishExam()
+
+// Continue Button in Violation Modal
+document.getElementById('continueBtn').addEventListener('click', () => {
+    document.getElementById('violationModal').classList.remove('show');
+    requestFullscreen();   // → restore fullscreen
+    resumeTimer();         // → resume exam timer
+});
+
+// Exit Button in Violation Modal
+document.getElementById('exitBtn').addEventListener('click', () => {
+    finishExam();          // → force finish exam
+});
+
+
+TIMER
+ setInterval(1000ms)
+   → decrement remaining time
+   → update timer display
+   → if time == 0 → finishExam()
+
+function startTimer() {
+    const timerDisplay = document.getElementById('timer');
+    timer = setInterval(() => {
+        timeLeft--;  // → decrement remaining time
+        timerDisplay.textContent = formatTime(timeLeft); // → update timer display
+
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            finishExam();  // → auto-end exam when time runs out
+        }
+    }, 1000); // interval of 1000ms (1 second)
+}
+
+
 </script>
 
 </body>
